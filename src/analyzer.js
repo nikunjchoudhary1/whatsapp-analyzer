@@ -6,7 +6,13 @@ async function analyzeChat(chatText, chatType) {
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      temperature: 1,
+      maxOutputTokens: 4096,
+    }
+  });
 
   const maxChars = 25000;
   let trimmedChat = chatText;
@@ -32,9 +38,9 @@ async function analyzeChat(chatText, chatType) {
 function getCouplePrompt(chatText) {
   return `You are analyzing a WhatsApp chat between two people.
 Many messages may be in Hinglish (Hindi words in English letters like "tumhara", "pyaar", "kal", "kya").
-Understand all such messages in context and translate them mentally to English.
+Understand all such messages in context.
 
-Return ONLY a valid JSON object. No markdown, no explanation, no backticks. Just raw JSON.
+IMPORTANT: Return ONLY raw JSON. No markdown. No backticks. No explanation. Start directly with {
 
 {
   "chatType": "individual",
@@ -81,7 +87,7 @@ function getGroupPrompt(chatText) {
   return `You are analyzing a WhatsApp GROUP chat.
 Many messages may be in Hinglish. Understand them in context.
 
-Return ONLY a valid JSON object. No markdown, no explanation, no backticks. Just raw JSON.
+IMPORTANT: Return ONLY raw JSON. No markdown. No backticks. No explanation. Start directly with {
 
 {
   "chatType": "group",
