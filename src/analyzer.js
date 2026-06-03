@@ -1,60 +1,59 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 async function analyzeChat(chatText, chatType) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY environment variable is not set');
+  }
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-  // Limit text to avoid token limits (take middle + end for best signal)
-  const maxChars = 30000;
+  const maxChars = 25000;
   let trimmedChat = chatText;
   if (chatText.length > maxChars) {
-    const chunk1 = chatText.slice(0, 10000);
-    const chunk2 = chatText.slice(Math.floor(chatText.length / 2) - 5000, Math.floor(chatText.length / 2) + 5000);
-    const chunk3 = chatText.slice(-10000);
+    const chunk1 = chatText.slice(0, 8000);
+    const chunk2 = chatText.slice(Math.floor(chatText.length / 2) - 4000, Math.floor(chatText.length / 2) + 4000);
+    const chunk3 = chatText.slice(-8000);
     trimmedChat = chunk1 + '\n...\n' + chunk2 + '\n...\n' + chunk3;
   }
 
-  const prompt = chatType === 'individual'
-    ? getCouplePrompt(trimmedChat)
-    : getGroupPrompt(trimmedChat);
+  const prompt = chatType === 'individual' ? getCouplePrompt(trimmedChat) : getGroupPrompt(trimmedChat);
 
   const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
+  const text = result.response.text();
 
-  // Parse JSON from response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('AI response was not valid JSON');
+  const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('AI did not return valid JSON. Please try again.');
 
   return JSON.parse(jsonMatch[0]);
 }
 
 function getCouplePrompt(chatText) {
-  return `You are analyzing a WhatsApp chat between two people (a couple or close friends). 
-Many messages may be in Hinglish (Hindi words written in English letters like "tumhara", "kal", "kya", "pyaar", etc.). 
-Translate/understand all such messages in context.
+  return `You are analyzing a WhatsApp chat between two people.
+Many messages may be in Hinglish (Hindi words in English letters like "tumhara", "pyaar", "kal", "kya").
+Understand all such messages in context and translate them mentally to English.
 
-Analyze this chat and return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
+Return ONLY a valid JSON object. No markdown, no explanation, no backticks. Just raw JSON.
 
 {
   "chatType": "individual",
-  "summary": "A warm 2-3 sentence overall summary of this chat relationship",
+  "summary": "warm 2-3 sentence summary of this relationship",
   "participants": ["Name1", "Name2"],
   "totalMessages": 0,
   "dateRange": { "from": "date", "to": "date" },
   "loveMetrics": {
     "iLoveYouCount": 0,
-    "loveVariants": ["pyaar", "I love you", "ily", ...],
+    "loveVariants": ["pyaar", "ily", "love you"],
     "totalLoveExpressions": 0,
-    "mostRomanticDay": "date or day description",
-    "mostRomanticMessage": "a sweet message (anonymized)"
+    "mostRomanticDay": "day description",
+    "mostRomanticMessage": "a sweet anonymized message"
   },
   "messageStats": {
-    "person1": { "name": "Name1", "messageCount": 0, "avgMessageLength": 0, "longestMessage": 0 },
-    "person2": { "name": "Name2", "messageCount": 0, "avgMessageLength": 0, "longestMessage": 0 },
-    "whoTextsMore": "Name1 or Name2",
-    "whoSendsLongerMessages": "Name1 or Name2"
+    "person1": { "name": "Name1", "messageCount": 0, "avgMessageLength": 0 },
+    "person2": { "name": "Name2", "messageCount": 0, "avgMessageLength": 0 },
+    "whoTextsMore": "Name1",
+    "whoSendsLongerMessages": "Name1"
   },
   "topWords": [
     { "word": "word", "count": 0, "meaning": "english meaning if hinglish" }
@@ -62,95 +61,68 @@ Analyze this chat and return ONLY a valid JSON object (no markdown, no explanati
   "topEmojis": [
     { "emoji": "😍", "count": 0, "label": "Heart Eyes" }
   ],
-  "funFacts": [
-    "Fun fact 1 about this chat",
-    "Fun fact 2",
-    "Fun fact 3",
-    "Fun fact 4",
-    "Fun fact 5"
-  ],
+  "funFacts": ["fact1", "fact2", "fact3", "fact4", "fact5"],
   "peakHour": "10 PM",
   "peakDay": "Saturday",
-  "longestConversation": "description of the longest streak",
-  "firstMessage": "what the very first message was about",
-  "insideJokes": ["phrase or word that appears repeatedly and seems like an inside joke"],
+  "insideJokes": ["phrase1", "phrase2"],
   "vibeScore": 85,
-  "vibeLabel": "Deeply Connected 💞",
-  "compatibilityNote": "A fun, warm 1-2 sentence compatibility observation",
+  "vibeLabel": "Deeply Connected",
+  "compatibilityNote": "fun warm observation",
   "milestones": [
-    { "date": "date", "event": "First time they said I love you / First late night chat / etc." }
+    { "date": "date", "event": "description" }
   ]
 }
 
-Return ONLY the JSON. No explanation. No markdown.
-
-CHAT TEXT:
+CHAT:
 ${chatText}`;
 }
 
 function getGroupPrompt(chatText) {
-  return `You are analyzing a WhatsApp GROUP chat. 
-Many messages may be in Hinglish (Hindi words written in English letters). Understand them in context.
+  return `You are analyzing a WhatsApp GROUP chat.
+Many messages may be in Hinglish. Understand them in context.
 
-Analyze this group chat and return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
+Return ONLY a valid JSON object. No markdown, no explanation, no backticks. Just raw JSON.
 
 {
   "chatType": "group",
-  "summary": "A fun 2-3 sentence summary of what this group is about and its vibe",
-  "groupName": "detected or inferred group name",
+  "summary": "fun 2-3 sentence summary of this group",
+  "groupName": "group name",
   "totalMessages": 0,
   "totalMembers": 0,
   "dateRange": { "from": "date", "to": "date" },
   "members": [
-    { "name": "Name", "messageCount": 0, "percentage": 0, "title": "The Lurker / The Chatty One / The Meme Lord / etc." }
+    { "name": "Name", "messageCount": 0, "percentage": 0, "title": "The Chatterbox" }
   ],
-  "topWords": [
-    { "word": "word", "count": 0 }
-  ],
-  "topEmojis": [
-    { "emoji": "😂", "count": 0, "label": "Laughing" }
-  ],
+  "topWords": [{ "word": "word", "count": 0 }],
+  "topEmojis": [{ "emoji": "😂", "count": 0, "label": "Laughing" }],
   "peakHour": "10 PM",
   "peakDay": "Saturday",
-  "mostActiveMember": "Name",
-  "mostSilentMember": "Name",
-  "ghostMembers": ["Name1", "Name2"],
-  "funTitles": {
-    "theChatterbox": "most messages",
-    "theLurker": "least messages",
-    "theNightOwl": "texts latest at night",
-    "theEarlyBird": "texts earliest in morning",
-    "theEmojiKing": "uses most emojis",
-    "thePhilosopher": "sends longest messages"
-  },
-  "funFacts": [
-    "Fun fact 1",
-    "Fun fact 2",
-    "Fun fact 3",
-    "Fun fact 4",
-    "Fun fact 5"
-  ],
-  "topTopics": ["topic1", "topic2", "topic3"],
+  "funFacts": ["fact1", "fact2", "fact3", "fact4", "fact5"],
   "chaosScore": 72,
-  "chaosLabel": "Wonderfully Chaotic 🔥",
-  "longestSilence": "description of biggest gap",
-  "mostReplyTo": "the person everyone replies to most",
-  "groupPersonality": "A playful 2 sentence description of the group's overall personality",
-  "milestones": [
-    { "date": "date", "event": "description" }
-  ],
+  "chaosLabel": "Wonderfully Chaotic",
+  "mostReplyTo": "Name",
+  "groupPersonality": "playful 2 sentence description",
+  "funTitles": {
+    "theChatterbox": "Name",
+    "theLurker": "Name",
+    "theNightOwl": "Name",
+    "theEarlyBird": "Name",
+    "theEmojiKing": "Name",
+    "thePhilosopher": "Name"
+  },
   "awards": [
-    { "title": "🏆 Most Likely to Spam", "winner": "Name", "reason": "short reason" },
-    { "title": "🌙 Night Owl Award", "winner": "Name", "reason": "short reason" },
-    { "title": "😂 Meme Lord", "winner": "Name", "reason": "short reason" },
-    { "title": "🤫 Silent Observer", "winner": "Name", "reason": "short reason" },
-    { "title": "💬 Voice of Reason", "winner": "Name", "reason": "short reason" }
-  ]
+    { "title": "Most Likely to Spam", "winner": "Name", "reason": "reason" },
+    { "title": "Night Owl Award", "winner": "Name", "reason": "reason" },
+    { "title": "Meme Lord", "winner": "Name", "reason": "reason" },
+    { "title": "Silent Observer", "winner": "Name", "reason": "reason" },
+    { "title": "Voice of Reason", "winner": "Name", "reason": "reason" }
+  ],
+  "ghostMembers": ["Name1"],
+  "topTopics": ["topic1", "topic2", "topic3"],
+  "milestones": [{ "date": "date", "event": "description" }]
 }
 
-Return ONLY the JSON. No explanation. No markdown.
-
-CHAT TEXT:
+CHAT:
 ${chatText}`;
 }
 
