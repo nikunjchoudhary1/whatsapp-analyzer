@@ -1,7 +1,11 @@
+bash
+
+cat /home/claude/whatsapp-analyzer/src/server.js
+Output
+
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const { analyzeChat } = require('./analyzer');
@@ -14,7 +18,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// In-memory session store: { sessionId: { analysis, chatType, createdAt } }
+// In-memory session store
 const sessions = {};
 
 // Auto-delete sessions older than 30 minutes
@@ -28,10 +32,10 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// Multer: memory storage only — no disk writes
+// Multer: memory storage only — increased to 50MB
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
       cb(null, true);
@@ -42,34 +46,41 @@ const upload = multer({
 });
 
 // POST /api/analyze
-app.post('/api/analyze', upload.single('chatFile'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+app.post('/api/analyze', (req, res) => {
+  upload.single('chatFile')(req, res, async (err) => {
+    // Handle multer errors (file too large, wrong type etc)
+    if (err) {
+      return res.status(400).json({ error: err.message || 'File upload error' });
     }
 
-    const chatType = req.body.chatType || 'individual'; // 'individual' or 'group'
-    const rawText = req.file.buffer.toString('utf8');
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
 
-    // Sanitize: remove phone numbers, emails, media references
-    const sanitized = sanitizeChat(rawText);
+      const chatType = req.body.chatType || 'individual';
+      const rawText = req.file.buffer.toString('utf8');
 
-    // Analyze with Gemini
-    const analysis = await analyzeChat(sanitized, chatType);
+      // Sanitize: remove phone numbers, emails, media references
+      const sanitized = sanitizeChat(rawText);
 
-    // Store in memory
-    const sessionId = uuidv4();
-    sessions[sessionId] = {
-      analysis,
-      chatType,
-      createdAt: Date.now()
-    };
+      // Analyze with Gemini
+      const analysis = await analyzeChat(sanitized, chatType);
 
-    res.json({ sessionId, analysis });
-  } catch (err) {
-    console.error('Analysis error:', err);
-    res.status(500).json({ error: err.message || 'Analysis failed' });
-  }
+      // Store in memory
+      const sessionId = uuidv4();
+      sessions[sessionId] = {
+        analysis,
+        chatType,
+        createdAt: Date.now()
+      };
+
+      res.json({ sessionId, analysis });
+    } catch (err) {
+      console.error('Analysis error:', err);
+      res.status(500).json({ error: err.message || 'Analysis failed' });
+    }
+  });
 });
 
 // GET /api/download/:sessionId
@@ -102,19 +113,14 @@ app.delete('/api/session/:sessionId', (req, res) => {
 
 function sanitizeChat(text) {
   return text
-    // Remove phone numbers
     .replace(/\+?[\d\s\-().]{10,}/g, '[NUMBER]')
-    // Remove email addresses
     .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[EMAIL]')
-    // Remove media omitted lines
     .replace(/.*(image omitted|video omitted|audio omitted|document omitted|sticker omitted|GIF omitted).*/gi, '')
-    // Remove URLs
     .replace(/https?:\/\/[^\s]+/g, '[LINK]')
-    // Remove lines that are purely numbers (account numbers etc)
     .replace(/^\d+$/gm, '')
     .trim();
 }
 
 app.listen(PORT, () => {
-  console.log(`✅ WhatsApp Analyzer running on http://localhost:${PORT}`);
+  console.log(`✅ WhatsApp Analyzer running on port ${PORT}`);
 });
