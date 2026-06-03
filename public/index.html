@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatStory — Your Chat, Beautifully Analyzed</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rose: #E91E8C;
+    --rose-light: #ff6bb5;
+    --purple: #7B2D8B;
+    --teal: #00A896;
+    --orange: #FF6B35;
+    --dark: #0d0d1a;
+    --card: #161628;
+    --border: rgba(233,30,140,0.15);
+    --text: #f0e6f6;
+    --muted: #9b89a8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 20%, rgba(123,45,139,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 80%, rgba(233,30,140,0.2) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0,168,150,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── NAV ── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 0; border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--rose); letter-spacing: -0.5px; }
+  .logo span { color: var(--text); }
+
+  /* ── TRUST BADGES ── */
+  .trust-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .trust-badge {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(0,168,150,0.1);
+    border: 1px solid rgba(0,168,150,0.3);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-size: 12px; font-weight: 500; color: #7ffff0;
+  }
+  .trust-badge .dot { width: 7px; height: 7px; background: #00A896; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── HERO ── */
+  .hero { text-align: center; padding: 60px 0 40px; }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(38px, 7vw, 64px);
+    line-height: 1.1; margin-bottom: 18px;
+    background: linear-gradient(135deg, #ffffff 0%, var(--rose-light) 50%, var(--purple) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero p { font-size: 17px; color: var(--muted); max-width: 520px; margin: 0 auto; line-height: 1.7; }
+
+  /* ── UPLOAD CARD ── */
+  #uploadSection { padding: 20px 0 60px; }
+
+  .chat-type-toggle {
+    display: flex; gap: 12px; justify-content: center; margin-bottom: 28px;
+  }
+  .type-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 16px 28px;
+    background: var(--card); border: 2px solid var(--border);
+    border-radius: 16px; cursor: pointer;
+    transition: all 0.25s; color: var(--muted); font-family: inherit;
+    flex: 1; max-width: 200px;
+  }
+  .type-btn .icon { font-size: 28px; }
+  .type-btn .label { font-size: 14px; font-weight: 600; }
+  .type-btn .sub { font-size: 11px; opacity: 0.7; }
+  .type-btn.active {
+    border-color: var(--rose); color: var(--text);
+    background: rgba(233,30,140,0.1);
+    box-shadow: 0 0 24px rgba(233,30,140,0.2);
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 50px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: var(--card);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--rose);
+    background: rgba(233,30,140,0.05);
+  }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-icon { font-size: 48px; margin-bottom: 16px; }
+  .upload-zone h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .upload-zone p { color: var(--muted); font-size: 14px; }
+  .upload-zone .hint {
+    margin-top: 16px; padding: 10px 16px;
+    background: rgba(255,255,255,0.04); border-radius: 10px;
+    font-size: 12px; color: var(--muted); line-height: 1.6;
+  }
+
+  .btn-analyze {
+    display: block; width: 100%; margin-top: 20px;
+    padding: 18px; border: none; border-radius: 14px; cursor: pointer;
+    font-family: inherit; font-size: 17px; font-weight: 600;
+    background: linear-gradient(135deg, var(--rose), var(--purple));
+    color: white;
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(233,30,140,0.3);
+    opacity: 0.4; pointer-events: none;
+  }
+  .btn-analyze.ready { opacity: 1; pointer-events: all; }
+  .btn-analyze:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(233,30,140,0.4); }
+
+  /* ── PROGRESS SCREEN ── */
+  #progressSection { display: none; padding: 60px 0; }
+  .progress-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 24px; padding: 50px 40px; text-align: center;
+  }
+  .progress-card h2 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 8px; }
+  .progress-card p { color: var(--muted); margin-bottom: 36px; font-size: 14px; }
+
+  .steps { display: flex; flex-direction: column; gap: 16px; text-align: left; }
+  .step {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px; border-radius: 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid transparent;
+    transition: all 0.5s;
+  }
+  .step.active { border-color: var(--rose); background: rgba(233,30,140,0.08); }
+  .step.done { border-color: rgba(0,168,150,0.4); background: rgba(0,168,150,0.06); }
+  .step-icon { font-size: 24px; width: 40px; text-align: center; }
+  .step-text { flex: 1; }
+  .step-text strong { display: block; font-size: 14px; font-weight: 600; }
+  .step-text span { font-size: 12px; color: var(--muted); }
+  .step-status { font-size: 18px; }
+  .spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULTS ── */
+  #resultsSection { display: none; padding: 40px 0 80px; }
+
+  .results-header { text-align: center; margin-bottom: 40px; }
+  .results-header h2 { font-family: 'Playfair Display', serif; font-size: 36px; margin-bottom: 8px; }
+  .results-header p { color: var(--muted); }
+
+  .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media(max-width:600px) { .cards-grid { grid-template-columns: 1fr; } }
+
+  .rcard {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 18px; padding: 24px;
+    transition: transform 0.2s;
+  }
+  .rcard:hover { transform: translateY(-3px); }
+  .rcard.full { grid-column: 1/-1; }
+  .rcard.love { border-color: rgba(233,30,140,0.4); background: rgba(233,30,140,0.06); }
+  .rcard.vibe { border-color: rgba(123,45,139,0.4); text-align: center; }
+  .rcard.teal { border-color: rgba(0,168,150,0.4); background: rgba(0,168,150,0.06); }
+  .rcard.orange { border-color: rgba(255,107,53,0.4); background: rgba(255,107,53,0.06); }
+
+  .rcard-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+  .rcard-big { font-size: 48px; font-weight: 700; color: var(--rose); line-height: 1; margin-bottom: 4px; }
+  .rcard-sub { font-size: 13px; color: var(--muted); }
+
+  .vibe-score { font-size: 72px; font-weight: 700; color: var(--rose); line-height: 1; }
+  .vibe-label { font-size: 20px; font-weight: 600; margin: 8px 0; }
+  .vibe-note { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .word-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .word-pill {
+    padding: 5px 12px; border-radius: 100px;
+    background: rgba(123,45,139,0.2); border: 1px solid rgba(123,45,139,0.3);
+    font-size: 12px; color: var(--text);
+  }
+  .word-pill .cnt { color: var(--rose); font-weight: 600; }
+
+  .emoji-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .emoji-item { text-align: center; }
+  .emoji-item .e { font-size: 28px; }
+  .emoji-item .ec { font-size: 11px; color: var(--muted); display: block; }
+
+  .fact-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .fact-list li { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; color: var(--text); }
+  .fact-list li::before { content: '✨'; flex-shrink: 0; }
+
+  .member-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .member-row:last-child { border-bottom: none; }
+  .member-name { font-weight: 600; min-width: 100px; }
+  .member-bar-wrap { flex: 1; background: rgba(255,255,255,0.06); border-radius: 100px; height: 6px; }
+  .member-bar { height: 6px; border-radius: 100px; background: linear-gradient(90deg, var(--teal), var(--rose)); }
+  .member-pct { color: var(--muted); font-size: 11px; min-width: 36px; text-align: right; }
+  .member-title { color: var(--rose); font-size: 11px; font-style: italic; }
+
+  .award-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .award-item:last-child { border-bottom: none; }
+  .award-title { font-size: 14px; font-weight: 600; color: var(--orange); }
+  .award-winner { font-size: 13px; color: var(--text); }
+  .award-reason { font-size: 12px; color: var(--muted); }
+
+  .person-stat {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .person-stat:last-child { border-bottom: none; }
+
+  /* ── DOWNLOAD / ERASE ── */
+  .action-bar {
+    display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap;
+  }
+  .btn-dl {
+    flex: 1; min-width: 200px; padding: 16px 24px;
+    background: linear-gradient(135deg, var(--rose), var(--purple));
+    color: white; border: none; border-radius: 14px;
+    font-family: inherit; font-size: 16px; font-weight: 600;
+    cursor: pointer; transition: all 0.3s;
+    box-shadow: 0 8px 24px rgba(233,30,140,0.25);
+  }
+  .btn-dl:hover { transform: translateY(-2px); }
+
+  .btn-erase {
+    flex: 1; min-width: 160px; padding: 16px 24px;
+    background: rgba(255,255,255,0.05); color: var(--muted);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+    font-family: inherit; font-size: 15px; font-weight: 500;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .btn-erase:hover { background: rgba(255,59,59,0.1); border-color: rgba(255,59,59,0.3); color: #ff6b6b; }
+
+  .privacy-note {
+    margin-top: 16px; padding: 14px 20px;
+    background: rgba(0,168,150,0.08); border: 1px solid rgba(0,168,150,0.2);
+    border-radius: 12px; font-size: 12px; color: #7ffff0; line-height: 1.7;
+    text-align: center;
+  }
+
+  /* ── ERASED STATE ── */
+  #erasedSection { display: none; padding: 80px 0; text-align: center; }
+  .erased-icon { font-size: 64px; margin-bottom: 20px; }
+  #erasedSection h2 { font-family: 'Playfair Display', serif; font-size: 32px; margin-bottom: 12px; }
+  #erasedSection p { color: var(--muted); max-width: 400px; margin: 0 auto 28px; }
+  .btn-restart {
+    padding: 14px 32px; border-radius: 100px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-family: inherit; font-size: 15px; font-weight: 500;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .btn-restart:hover { border-color: var(--rose); color: var(--rose); }
+
+  /* ── HOW IT WORKS ── */
+  .how-section { padding: 60px 0; border-top: 1px solid var(--border); }
+  .how-section h2 { font-family: 'Playfair Display', serif; font-size: 28px; text-align: center; margin-bottom: 36px; }
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media(max-width:600px) { .how-grid { grid-template-columns: 1fr; } }
+  .how-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; text-align: center; }
+  .how-card .num { font-family: 'Playfair Display', serif; font-size: 36px; color: var(--rose); margin-bottom: 10px; }
+  .how-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .how-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  footer { text-align: center; padding: 30px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; border: 1px solid var(--border); border-radius: 100px;
+    padding: 12px 24px; font-size: 14px; color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 999;
+    transition: opacity 0.3s; opacity: 0; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav>
+    <div class="logo">Chat<span>Story</span></div>
+    <div style="font-size:12px;color:var(--muted);">✨ AI-Powered Chat Analysis</div>
+  </nav>
+
+  <!-- Trust Bar -->
+  <div class="trust-bar">
+    <div class="trust-badge"><div class="dot"></div> No images processed</div>
+    <div class="trust-badge"><div class="dot"></div> Phone numbers stripped instantly</div>
+    <div class="trust-badge"><div class="dot"></div> Data deleted after download</div>
+    <div class="trust-badge"><div class="dot"></div> No database — memory only</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Your chat,<br><em style="font-style:italic">beautifully</em> unwrapped</h1>
+    <p>Upload your WhatsApp chat export and get a stunning AI-powered analysis — love stats, fun facts, inside jokes and more. Works in English, Hindi & Hinglish.</p>
+  </div>
+
+  <!-- Upload Section -->
+  <div id="uploadSection">
+    <div class="chat-type-toggle">
+      <button class="type-btn active" id="btnIndividual" onclick="setType('individual')">
+        <span class="icon">💞</span>
+        <span class="label">Individual Chat</span>
+        <span class="sub">Couple / Best Friends</span>
+      </button>
+      <button class="type-btn" id="btnGroup" onclick="setType('group')">
+        <span class="icon">🎉</span>
+        <span class="label">Group Chat</span>
+        <span class="sub">Friends / Family / Work</span>
+      </button>
+    </div>
+
+    <div class="upload-zone" id="dropZone">
+      <input type="file" accept=".txt" id="fileInput" onchange="onFileSelect(this)">
+      <div class="upload-icon">📂</div>
+      <h3 id="uploadTitle">Drop your WhatsApp .txt file here</h3>
+      <p>or click to browse</p>
+      <div class="hint">
+        <strong>How to export:</strong> WhatsApp → Open Chat → ⋮ Menu → More → Export Chat → <strong>Without Media</strong> → Save .txt file
+      </div>
+    </div>
+    <div id="fileName" style="text-align:center;margin-top:10px;font-size:13px;color:var(--muted);"></div>
+
+    <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()">✨ Analyze My Chat</button>
+  </div>
+
+  <!-- Progress Section -->
+  <div id="progressSection">
+    <div class="progress-card">
+      <h2>✨ Analyzing your chat…</h2>
+      <p>This takes 15–45 seconds. Sit tight!</p>
+      <div class="steps">
+        <div class="step" id="step1">
+          <div class="step-icon">🛡️</div>
+          <div class="step-text">
+            <strong>Removing private info</strong>
+            <span>Stripping phone numbers, images & sensitive data</span>
+          </div>
+          <div class="step-status" id="st1">⏳</div>
+        </div>
+        <div class="step" id="step2">
+          <div class="step-icon">🌐</div>
+          <div class="step-text">
+            <strong>Translating Hinglish</strong>
+            <span>Understanding Hindi words written in English</span>
+          </div>
+          <div class="step-status" id="st2">—</div>
+        </div>
+        <div class="step" id="step3">
+          <div class="step-icon">🤖</div>
+          <div class="step-text">
+            <strong>AI Analysis with Gemini</strong>
+            <span>Finding patterns, counting love words, spotting emojis…</span>
+          </div>
+          <div class="step-status" id="st3">—</div>
+        </div>
+        <div class="step" id="step4">
+          <div class="step-icon">📄</div>
+          <div class="step-text">
+            <strong>Preparing your report</strong>
+            <span>Building your beautiful analysis</span>
+          </div>
+          <div class="step-status" id="st4">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Section -->
+  <div id="resultsSection">
+    <div class="results-header">
+      <h2 id="resultsTitle">💞 Your Chat Analysis</h2>
+      <p id="resultsSubtitle">Here's everything we found in your chat</p>
+    </div>
+    <div id="resultsCards"></div>
+    <div class="action-bar">
+      <button class="btn-dl" onclick="downloadPDF()">⬇️ Download PDF Report</button>
+      <button class="btn-erase" onclick="eraseData()">🗑️ Erase My Data Now</button>
+    </div>
+    <div class="privacy-note">
+      🔒 Your chat data is stored in memory only and will be <strong>automatically deleted</strong> when you close this window or download the PDF. No data is saved to any database.
+    </div>
+  </div>
+
+  <!-- Erased Section -->
+  <div id="erasedSection">
+    <div class="erased-icon">🗑️</div>
+    <h2>Data Erased ✓</h2>
+    <p>Your chat has been completely deleted from our servers. No trace remains. Thank you for trusting us with your personal conversations.</p>
+    <button class="btn-restart" onclick="restart()">↩ Analyze Another Chat</button>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-section" id="howSection">
+    <h2>How it works</h2>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="num">01</div>
+        <h3>Export your chat</h3>
+        <p>In WhatsApp, go to your chat → tap ⋮ → More → Export Chat → Without Media. You'll get a .txt file.</p>
+      </div>
+      <div class="how-card">
+        <div class="num">02</div>
+        <h3>Upload & analyze</h3>
+        <p>We strip all sensitive info instantly, then our AI reads your chat in English, Hindi & Hinglish — no info leaves your session.</p>
+      </div>
+      <div class="how-card">
+        <div class="num">03</div>
+        <h3>Download & delete</h3>
+        <p>Get a beautiful PDF report. Your data auto-deletes when you close the tab or click "Erase". Nothing is stored.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>Made with 💜 · ChatStory · Your data is never stored, sold, or shared.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let selectedType = 'individual';
+  let selectedFile = null;
+  let sessionId = null;
+  let analysisData = null;
+
+  function setType(type) {
+    selectedType = type;
+    document.getElementById('btnIndividual').classList.toggle('active', type === 'individual');
+    document.getElementById('btnGroup').classList.toggle('active', type === 'group');
+  }
+
+  function onFileSelect(input) {
+    if (input.files && input.files[0]) {
+      selectedFile = input.files[0];
+      document.getElementById('fileName').textContent = `📄 ${selectedFile.name} (${(selectedFile.size/1024).toFixed(1)} KB)`;
+      document.getElementById('analyzeBtn').classList.add('ready');
+      document.getElementById('uploadTitle').textContent = selectedFile.name;
+    }
+  }
+
+  // Drag and drop
+  const dropZone = document.getElementById('dropZone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.txt')) {
+      selectedFile = f;
+      document.getElementById('fileName').textContent = `📄 ${f.name}`;
+      document.getElementById('analyzeBtn').classList.add('ready');
+      document.getElementById('uploadTitle').textContent = f.name;
+    } else { showToast('Please drop a .txt file exported from WhatsApp'); }
+  });
+
+  async function startAnalysis() {
+    if (!selectedFile) return;
+
+    show('progressSection');
+    hide('uploadSection');
+    hide('howSection');
+
+    // Step 1
+    setStep(1, 'active');
+    await delay(1200);
+    setStep(1, 'done');
+
+    // Step 2
+    setStep(2, 'active');
+    await delay(800);
+    setStep(2, 'done');
+
+    // Step 3 — actual API call
+    setStep(3, 'active');
+
+    try {
+      const formData = new FormData();
+      formData.append('chatFile', selectedFile);
+      formData.append('chatType', selectedType);
+
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Analysis failed');
+      }
+      const data = await res.json();
+      sessionId = data.sessionId;
+      analysisData = data.analysis;
+
+      setStep(3, 'done');
+
+      // Step 4
+      setStep(4, 'active');
+      await delay(600);
+      setStep(4, 'done');
+      await delay(400);
+
+      // Show results
+      hide('progressSection');
+      renderResults(analysisData);
+      show('resultsSection');
+
+    } catch (err) {
+      hide('progressSection');
+      show('uploadSection');
+      show('howSection');
+      showToast('❌ ' + err.message);
+    }
+  }
+
+  function renderResults(a) {
+    const isGroup = a.chatType === 'group';
+    const container = document.getElementById('resultsCards');
+
+    document.getElementById('resultsTitle').textContent = isGroup
+      ? `🎉 ${a.groupName || 'Group Chat'} — Wrapped!`
+      : `💞 ${(a.participants || ['You', 'Them']).join(' & ')} — Your Story`;
+
+    document.getElementById('resultsSubtitle').textContent =
+      `${a.totalMessages || '?'} messages · ${a.dateRange?.from || ''} – ${a.dateRange?.to || ''}`;
+
+    container.innerHTML = isGroup ? buildGroupCards(a) : buildCoupleCards(a);
+  }
+
+  function buildCoupleCards(a) {
+    const love = a.loveMetrics || {};
+    const ms = a.messageStats || {};
+    const p1 = ms.person1 || {};
+    const p2 = ms.person2 || {};
+
+    return `
+      <div class="cards-grid">
+        <div class="rcard love">
+          <div class="rcard-title">❤️ "I Love You" Count</div>
+          <div class="rcard-big">${love.iLoveYouCount || 0}</div>
+          <div class="rcard-sub">times said in all languages</div>
+          ${love.mostRomanticDay ? `<div style="margin-top:12px;font-size:12px;color:var(--muted)">🌹 Most romantic: ${love.mostRomanticDay}</div>` : ''}
+        </div>
+        <div class="rcard love">
+          <div class="rcard-title">💌 Total Love Expressions</div>
+          <div class="rcard-big">${love.totalLoveExpressions || 0}</div>
+          <div class="rcard-sub">across all love words & phrases</div>
+        </div>
+        <div class="rcard vibe full">
+          <div class="rcard-title">💫 Vibe Score</div>
+          <div class="vibe-score">${a.vibeScore || '?'}<span style="font-size:28px">/100</span></div>
+          <div class="vibe-label">${a.vibeLabel || ''}</div>
+          <div class="vibe-note">${a.compatibilityNote || ''}</div>
+        </div>
+        ${love.mostRomanticMessage ? `
+        <div class="rcard full love">
+          <div class="rcard-title">🌹 Most Romantic Message</div>
+          <div style="font-size:16px;font-style:italic;color:var(--rose-light);line-height:1.6">"${love.mostRomanticMessage}"</div>
+        </div>` : ''}
+        <div class="rcard">
+          <div class="rcard-title">📊 Messages Sent</div>
+          ${p1.name ? `<div class="person-stat"><span>${p1.name}</span><strong>${p1.messageCount || 0}</strong></div>` : ''}
+          ${p2.name ? `<div class="person-stat"><span>${p2.name}</span><strong>${p2.messageCount || 0}</strong></div>` : ''}
+          <div class="person-stat" style="color:var(--rose)"><span>📱 Who texts more</span><strong>${ms.whoTextsMore || '?'}</strong></div>
+        </div>
+        <div class="rcard">
+          <div class="rcard-title">⏰ When You Talk Most</div>
+          <div class="person-stat"><span>🌙 Peak Hour</span><strong>${a.peakHour || '?'}</strong></div>
+          <div class="person-stat"><span>📅 Peak Day</span><strong>${a.peakDay || '?'}</strong></div>
+          <div class="person-stat"><span>💬 Total Messages</span><strong>${a.totalMessages || '?'}</strong></div>
+        </div>
+        ${a.topWords?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">🔤 Your Most Used Words</div>
+          <div class="word-list">
+            ${a.topWords.slice(0,12).map(w =>
+              `<div class="word-pill">${w.word} <span class="cnt">×${w.count}</span>${w.meaning ? ` <span style="opacity:.6;font-size:10px">(${w.meaning})</span>` : ''}</div>`
+            ).join('')}
+          </div>
+        </div>` : ''}
+        ${a.topEmojis?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">😍 Your Favourite Emojis</div>
+          <div class="emoji-list">
+            ${a.topEmojis.slice(0,10).map(e =>
+              `<div class="emoji-item"><span class="e">${e.emoji}</span><span class="ec">×${e.count}</span></div>`
+            ).join('')}
+          </div>
+        </div>` : ''}
+        ${a.insideJokes?.length ? `
+        <div class="rcard">
+          <div class="rcard-title">🤫 Inside Jokes & Phrases</div>
+          <div class="word-list">
+            ${a.insideJokes.map(j => `<div class="word-pill">${j}</div>`).join('')}
+          </div>
+        </div>` : ''}
+        ${a.milestones?.length ? `
+        <div class="rcard teal">
+          <div class="rcard-title">🏅 Milestones</div>
+          ${a.milestones.map(m =>
+            `<div class="person-stat"><span style="color:var(--teal)">${m.date || ''}</span><span style="font-size:12px">${m.event || ''}</span></div>`
+          ).join('')}
+        </div>` : ''}
+        ${a.funFacts?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">🎉 Fun Facts About You Two</div>
+          <ul class="fact-list">
+            ${a.funFacts.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+        ${a.summary ? `
+        <div class="rcard full" style="border-color:rgba(123,45,139,0.4);background:rgba(123,45,139,0.06)">
+          <div class="rcard-title">✨ Your Story in Words</div>
+          <p style="font-size:15px;line-height:1.7;color:var(--text)">${a.summary}</p>
+        </div>` : ''}
+      </div>`;
+  }
+
+  function buildGroupCards(a) {
+    const members = a.members || [];
+    const maxMsgs = Math.max(...members.map(m => m.messageCount || 0), 1);
+
+    return `
+      <div class="cards-grid">
+        <div class="rcard teal">
+          <div class="rcard-title">👥 Total Members</div>
+          <div class="rcard-big" style="color:var(--teal)">${a.totalMembers || members.length || '?'}</div>
+          <div class="rcard-sub">active members</div>
+        </div>
+        <div class="rcard orange">
+          <div class="rcard-title">🔥 Chaos Score</div>
+          <div class="rcard-big" style="color:var(--orange)">${a.chaosScore || '?'}<span style="font-size:24px">/100</span></div>
+          <div class="rcard-sub">${a.chaosLabel || ''}</div>
+        </div>
+        <div class="rcard full" style="border-color:rgba(0,168,150,0.3)">
+          <div class="rcard-title">💬 Total Messages: ${a.totalMessages || '?'} · Peak: ${a.peakDay || '?'} at ${a.peakHour || '?'}</div>
+          <p style="font-size:14px;line-height:1.7;color:var(--muted);margin-top:8px">${a.summary || ''}</p>
+        </div>
+        ${members.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">🏆 Member Leaderboard</div>
+          ${members.slice(0,12).map((m, i) => `
+            <div class="member-row">
+              <span style="color:var(--muted);font-size:12px;min-width:20px">${i+1}</span>
+              <span class="member-name">${m.name}</span>
+              <div class="member-bar-wrap"><div class="member-bar" style="width:${Math.round((m.messageCount||0)/maxMsgs*100)}%"></div></div>
+              <span class="member-pct">${m.percentage || 0}%</span>
+              <span class="member-title">${m.title || ''}</span>
+            </div>`).join('')}
+        </div>` : ''}
+        ${a.awards?.length ? `
+        <div class="rcard full orange">
+          <div class="rcard-title">🏅 Special Awards</div>
+          ${a.awards.map(aw => `
+            <div class="award-item">
+              <span style="font-size:24px">${aw.title?.split(' ')[0] || '🏆'}</span>
+              <div>
+                <div class="award-title">${aw.title}</div>
+                <div class="award-winner">🏆 ${aw.winner}</div>
+                <div class="award-reason">${aw.reason}</div>
+              </div>
+            </div>`).join('')}
+        </div>` : ''}
+        ${a.funTitles ? `
+        <div class="rcard teal">
+          <div class="rcard-title">🎭 Group Roles</div>
+          ${Object.entries({
+            theChatterbox:'💬 The Chatterbox', theLurker:'🤫 The Lurker',
+            theNightOwl:'🌙 The Night Owl', theEarlyBird:'🌅 The Early Bird',
+            theEmojiKing:'😂 The Emoji King', thePhilosopher:'🧠 The Philosopher'
+          }).map(([k,label]) => a.funTitles[k]
+            ? `<div class="person-stat"><span>${label}</span><strong style="color:var(--teal)">${a.funTitles[k]}</strong></div>`
+            : '').join('')}
+        </div>` : ''}
+        <div class="rcard">
+          <div class="rcard-title">⏰ Activity</div>
+          <div class="person-stat"><span>🌙 Peak Hour</span><strong>${a.peakHour||'?'}</strong></div>
+          <div class="person-stat"><span>📅 Peak Day</span><strong>${a.peakDay||'?'}</strong></div>
+          <div class="person-stat"><span>🗣️ Most replied to</span><strong>${a.mostReplyTo||'?'}</strong></div>
+          ${a.ghostMembers?.length ? `<div class="person-stat"><span>👻 Ghosts</span><strong style="color:var(--muted);font-size:12px">${a.ghostMembers.join(', ')}</strong></div>` : ''}
+        </div>
+        ${a.topWords?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">🔤 Most Used Words</div>
+          <div class="word-list">
+            ${a.topWords.slice(0,12).map(w =>
+              `<div class="word-pill">${w.word} <span class="cnt">×${w.count}</span></div>`
+            ).join('')}
+          </div>
+        </div>` : ''}
+        ${a.topEmojis?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">😂 Top Emojis</div>
+          <div class="emoji-list">
+            ${a.topEmojis.slice(0,10).map(e =>
+              `<div class="emoji-item"><span class="e">${e.emoji}</span><span class="ec">×${e.count}</span></div>`
+            ).join('')}
+          </div>
+        </div>` : ''}
+        ${a.topTopics?.length ? `
+        <div class="rcard">
+          <div class="rcard-title">💬 Top Topics</div>
+          <div class="word-list">
+            ${a.topTopics.map(t => `<div class="word-pill">${t}</div>`).join('')}
+          </div>
+        </div>` : ''}
+        ${a.funFacts?.length ? `
+        <div class="rcard full">
+          <div class="rcard-title">🎊 Fun Facts</div>
+          <ul class="fact-list">
+            ${a.funFacts.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+      </div>`;
+  }
+
+  async function downloadPDF() {
+    if (!sessionId) return;
+    const btn = document.querySelector('.btn-dl');
+    btn.textContent = '⏳ Generating PDF…';
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/download/${sessionId}`);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'chat-analysis.pdf';
+      a.click(); URL.revokeObjectURL(url);
+      btn.textContent = '✅ Downloaded!';
+      showToast('📄 PDF downloaded! Your data will auto-delete when you close this tab.');
+    } catch (e) {
+      btn.textContent = '⬇️ Download PDF Report';
+      btn.disabled = false;
+      showToast('❌ Download failed. Try again.');
+    }
+  }
+
+  async function eraseData() {
+    if (sessionId) {
+      try { await fetch(`/api/session/${sessionId}`, { method: 'DELETE' }); } catch(e) {}
+    }
+    sessionId = null; analysisData = null;
+    hide('resultsSection');
+    show('erasedSection');
+  }
+
+  function restart() {
+    hide('erasedSection');
+    show('uploadSection');
+    show('howSection');
+    selectedFile = null; sessionId = null; analysisData = null;
+    document.getElementById('fileInput').value = '';
+    document.getElementById('fileName').textContent = '';
+    document.getElementById('uploadTitle').textContent = 'Drop your WhatsApp .txt file here';
+    document.getElementById('analyzeBtn').classList.remove('ready');
+    document.getElementById('resultsCards').innerHTML = '';
+  }
+
+  // Auto-delete on close
+  window.addEventListener('beforeunload', (e) => {
+    if (sessionId) {
+      navigator.sendBeacon(`/api/session/${sessionId}`, JSON.stringify({ delete: true }));
+      e.preventDefault();
+      e.returnValue = 'Your chat data will be deleted when you leave. Are you sure?';
+    }
+  });
+
+  // Helpers
+  function show(id) { document.getElementById(id).style.display = 'block'; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function setStep(n, state) {
+    const step = document.getElementById(`step${n}`);
+    const icon = document.getElementById(`st${n}`);
+    step.className = 'step ' + state;
+    if (state === 'active') icon.innerHTML = '<span class="spinner">⏳</span>';
+    else if (state === 'done') icon.textContent = '✅';
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+</script>
+</body>
+</html>
