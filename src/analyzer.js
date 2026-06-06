@@ -1,19 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 async function analyzeChat(chatText, chatType) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY environment variable is not set');
-  }
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash',
-    generationConfig: {
-      temperature: 1,
-      maxOutputTokens: 4096,
-    }
-  });
-
   const maxChars = 25000;
   let trimmedChat = chatText;
   if (chatText.length > maxChars) {
@@ -25,13 +10,24 @@ async function analyzeChat(chatText, chatType) {
 
   const prompt = chatType === 'individual' ? getCouplePrompt(trimmedChat) : getGroupPrompt(trimmedChat);
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+  const response = await fetch('http://localhost:11434/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'llama3.1:8b',
+      prompt: prompt,
+      stream: false,
+      options: { temperature: 0.7, num_predict: 4096 }
+    })
+  });
+
+  if (!response.ok) throw new Error('AI is not running. Please start Ollama and try again.');
+  const data = await response.json();
+  const text = data.response;
 
   const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
   const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('AI did not return valid JSON. Please try again.');
-
+  if (!jsonMatch) throw new Error('AI did not return valid data. Please try again.');
   return JSON.parse(jsonMatch[0]);
 }
 
@@ -74,9 +70,7 @@ IMPORTANT: Return ONLY raw JSON. No markdown. No backticks. No explanation. Star
   "vibeScore": 85,
   "vibeLabel": "Deeply Connected",
   "compatibilityNote": "fun warm observation",
-  "milestones": [
-    { "date": "date", "event": "description" }
-  ]
+  "milestones": [{ "date": "date", "event": "description" }]
 }
 
 CHAT:
